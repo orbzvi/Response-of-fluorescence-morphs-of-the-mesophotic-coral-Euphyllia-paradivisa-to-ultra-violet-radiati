@@ -1,0 +1,236 @@
+---
+title: "Photobiology-ANOVA and mixed effects model"
+author: "Or Ben-Zvi"
+output: html_document:
+    keep_md: true
+---
+
+##load packages
+```{r message=FALSE, message=FALSE, warning=FALSE}
+library(car) 
+library(ggplot2) 
+library(lme4)
+library(lmerTest) 
+library(MASS) 
+library(cowplot)
+library(dplyr)
+library(doBy)
+```
+
+##read data
+```{r}
+data_pamin <- read.csv(file.choose())
+```
+```{r}
+str(data_pamin)
+```
+```{r}
+qqplot(data_pamin$morph,data_pamin$pam)
+plot(data_pamin$morph,data_pamin$pam)
+```
+
+```{r}
+data_pam <- read.csv(file.choose())
+```
+```{r message=FALSE, warning=FALSE}
+str(data_pam)
+data_pam$pamt0 <- as.numeric(as.character(data_pam$pamt0))
+data_pam$dpam <- as.numeric(as.character(data_pam$dpam))
+data_pam$ppam <- as.numeric(as.character(data_pam$ppam))
+data_pam$tank <- as.factor(data_pam$tank)
+str(data_pam)
+```
+```{r}
+qqplot(data_pam$morph,data_pam$dpam)
+plot(data_pam$morph,data_pam$dpam)
+```
+
+```{r}
+data_zoox <- read.csv(file.choose())
+```
+```{r message=FALSE, warning=FALSE}
+str(data_zoox)
+data_zoox$zooxt0 <- as.numeric(as.character(data_zoox$zooxt0))
+data_zoox$zooxt1 <- as.numeric(as.character(data_zoox$zooxt1))
+data_zoox$dzoox <- as.numeric(as.character(data_zoox$dzoox))
+data_zoox$pzoox <- as.numeric(as.character(data_zoox$pzoox))
+
+data_zoox$chlt0 <- as.numeric(as.character(data_zoox$chlt0))
+data_zoox$chlt1 <- as.numeric(as.character(data_zoox$chlt1))
+data_zoox$dchl <- as.numeric(as.character(data_zoox$dchl))
+data_zoox$pchl <- as.numeric(as.character(data_zoox$pchl))
+data_zoox$tank <- as.factor(data_zoox$tank)
+str(data_zoox)
+```
+```{r}
+qqplot(data_zoox$morph,data_zoox$dzoox)
+plot(data_zoox$morph,data_zoox$dzoox)
+
+qqplot(data_zoox$morph,data_zoox$dchl)
+plot(data_zoox$morph,data_zoox$dchl)
+```
+##Test with  one-way ANOVA or mixed effect model
+```{r}
+model_pamin <- aov(data=data_pamin, pam ~ morph)
+
+summary(model_pamin)
+
+model_pam <- lmer(dpam ~ treatment*morph + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_pam, REML=FALSE)
+summary(model_pam)
+anova(model_pam)
+
+model_pam1 <- lmer(dpam ~ treatment + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_pam, REML=FALSE) 
+
+model_pam2 <- lmer(dpam ~ morph + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_pam, REML=FALSE)
+
+anova(model_pam, model_pam1)
+anova(model_pam, model_pam2)
+
+
+model_zoox <- lmer(dzoox ~ treatment*morph + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_zoox, REML=FALSE)
+summary(model_zoox)
+anova(model_zoox)
+
+model_zoox1 <- lmer(dzoox ~ treatment + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_zoox, REML=FALSE) 
+
+model_zoox2 <- lmer(dzoox ~ morph + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_zoox, REML=FALSE)
+
+anova(model_zoox, model_zoox1)
+anova(model_zoox, model_zoox2)
+
+
+
+model_chl <- lmer(dchl ~ treatment*morph + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_zoox, REML=FALSE)
+summary(model_chl)
+anova(model_chl)
+
+model_chl1 <- lmer(dchl ~ treatment + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_zoox, REML=FALSE) 
+
+model_chl2 <- lmer(dchl ~ morph + (1|morph/colony) + (1|treatment/tank) ,
+                   data=data_zoox, REML=FALSE)
+
+anova(model_chl, model_chl1)
+anova(model_chl, model_chl2)
+
+```
+##Check the ANOVA and LMM assumptions
+#Check the normality ofdata or model residualss
+```{r}
+qqnorm(data_pamin$pam)
+qqline(data_pamin$pam)
+shapiro.test(data_pamin$pam)
+
+
+qqnorm(resid(model_pam))
+qqline(resid(model_pam))
+
+
+qqnorm(resid(model_zoox))
+qqline(resid(model_zoox))
+
+
+qqnorm(resid(model_chl))
+qqline(resid(model_chl))
+```
+```{r}
+leveneTest(pam ~ morph, data=data_pamin)
+plot(model_pam)
+plot(model_zoox)
+plot(model_chl)
+```
+##Obtain mean and SD
+```{r}
+sumfun <- function(x, ...){
+  c(mean=mean(x, na.rm=TRUE, ...), sd=sd(x, na.rm=TRUE, ...), l=length(x))
+}
+mean(data_pamin$pam, na.rm = TRUE)
+sd(data_pamin$pam, na.rm = TRUE)
+summaryBy(pam~morph, data=data_pamin, FUN=sumfun)
+
+mean(data_pam$pamt0, na.rm = TRUE)
+sd(data_pam$pamt0, na.rm = TRUE)
+summaryBy(pamt0 ~morph, data=data_pam, FUN=sumfun)
+summaryBy(pamt0 ~morph * treatment, data=data_pam, FUN=sumfun)
+mean(data_pam$pamt1, na.rm = TRUE)
+sd(data_pam$pamt1, na.rm = TRUE)
+summaryBy(pamt1 ~morph * treatment, data=data_pam, FUN=sumfun)
+summaryBy(pamt1 ~morph, data=data_pam, FUN=sumfun)
+summaryBy(pamt1 ~treatment, data=data_pam, FUN=sumfun)
+summaryBy(ppam ~morph * treatment, data=data_pam, FUN=sumfun)
+summaryBy(ppam ~morph, data=data_pam, FUN=sumfun)
+summaryBy(ppam ~treatment, data=data_pam, FUN=sumfun)
+
+
+summaryBy(zooxt0 ~morph, data=data_zoox, FUN=sumfun)
+summaryBy(zooxt0 ~morph * treatment, data=data_zoox, FUN=sumfun)
+summaryBy(zooxt1 ~morph, data=data_zoox, FUN=sumfun)
+summaryBy(zooxt1 ~treatment, data=data_zoox, FUN=sumfun)
+summaryBy(zooxt1 ~morph * treatment, data=data_zoox, FUN=sumfun)
+summaryBy(pzoox ~morph, data=data_zoox, FUN=sumfun)
+summaryBy(pzoox ~treatment, data=data_zoox, FUN=sumfun)
+summaryBy(pzoox ~morph * treatment, data=data_zoox, FUN=sumfun)
+
+summaryBy(chlt0 ~morph, data=data_zoox, FUN=sumfun)
+summaryBy(chlt0 ~morph * treatment, data=data_zoox, FUN=sumfun)
+summaryBy(chlt1 ~morph, data=data_zoox, FUN=sumfun)
+summaryBy(chlt1 ~treatment, data=data_zoox, FUN=sumfun)
+summaryBy(chlt1 ~morph * treatment, data=data_zoox, FUN=sumfun)
+summaryBy(pchl ~morph, data=data_zoox, FUN=sumfun)
+summaryBy(pchl ~treatment, data=data_zoox, FUN=sumfun)
+summaryBy(pchl ~morph * treatment, data=data_zoox, FUN=sumfun)
+mean(data_zoox$pchl, na.rm = TRUE)
+sd(data_zoox$pchl, na.rm = TRUE)
+```
+
+##Visualize the data as a box plot
+```{r}
+pamin_plot <- ggplot(data = data_pamin, aes(x=morph, y=pam)) + 
+  geom_boxplot() +
+  labs(x="Fluorescence morph", y="Effective photosynthetic yield (Fv/Fm)") + 
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(legend.position = "none") 
+pamin_plot
+
+pam_plot <- ggplot(data = data_pam, aes(x=morph, y=ppam)) + 
+  geom_boxplot(aes(fill=treatment)) +
+  labs(title= "Maximal photosynthetic yield (Fv/Fm)", x="Fluorescence morph", y="Relative change (%)") + 
+  ylim(-100, 100) +
+  geom_hline(yintercept=0, color= "red", size = 1.25, alpha = 0.4) +
+  scale_fill_grey(start = 0.4, end = 0.8, name="Treatment",breaks=c("par", "paruv"), labels=c("PAR","PAR+UV")) + 
+  theme_bw() +
+  theme(legend.position="right")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+pam_plot
+
+zoox_plot <- ggplot(data = data_zoox, aes(x=morph, y=pzoox)) + 
+  geom_boxplot(aes(fill=treatment)) +
+  labs(title = "Zooxanthellae density (105cells mghost tissue)",x="Fluorescence morph", y="Relative change (%)") + 
+  ylim(-100, 100) +
+  geom_hline(yintercept=0, color= "red", size = 1.25, alpha = 0.4) +
+  scale_fill_grey(start = 0.4, end = 0.8, name="Treatment",breaks=c("par", "paruv"), labels=c("PAR","PAR+UV")) + 
+  theme_bw() +
+  theme(legend.position="right")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+zoox_plot
+
+chl_plot <- ggplot(data = data_zoox, aes(x=morph, y=pchl)) + 
+  geom_boxplot(aes(fill=treatment)) +
+  labs(title = "Chlorophylll a concentration (pgchlorophyll a cell-1)", x="Fluorescence morph", y="Relative change (%)") +
+  ylim(-100, 100) +
+  geom_hline(yintercept=0, color= "red", size = 1.25, alpha = 0.4) +
+  scale_fill_grey(start = 0.4, end = 0.8, name="Treatment",breaks=c("par", "paruv"), labels=c("PAR","PAR+UV")) + 
+  theme_bw() +
+  theme(legend.position="right")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+chl_plot
+```
+
